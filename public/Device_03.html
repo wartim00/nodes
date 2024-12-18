@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<style>
+        #imageContainer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full viewport height */
+            text-align: center;
+        }
+
+        #deviceImage {
+            max-width: 100%;
+            height: auto;
+        }
+</style>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device 01 Viewer</title>
+</head>
+<body>
+<!--
+    <h1>Device 01 Viewer</h1>
+-->
+    <!-- Display Section -->
+    <div id="imageContainer">
+<!--
+        <h2>Current Image for Device 01:</h2>
+-->
+        <img id="deviceImage" src="" alt="Device 01 Image" style="max-width: 100%; height: auto;" />
+        <p id="statusMessage"></p>
+    </div>
+
+
+    <script>
+        const deviceId = "Device_03"; // Device ID
+
+        // Fetch and display the latest image
+        async function fetchImage() {
+            const image = document.getElementById("deviceImage");
+            const statusMessage = document.getElementById("statusMessage");
+
+            try {
+                const response = await fetch(`http://localhost:5000/uploads/${deviceId}`);
+                if (response.ok) {
+                    image.src = `http://localhost:5000/uploads/${deviceId}?t=${Date.now()}`; // Cache-busting
+                    statusMessage.textContent = "";
+                } else {
+                    image.src = "";
+                    statusMessage.textContent = "No image uploaded.";
+                }
+            } catch (error) {
+                console.error("Error fetching image:", error);
+                statusMessage.textContent = "Error loading image. Please try again.";
+            }
+        }
+
+        // Auto-refresh every 3 seconds
+        setInterval(fetchImage, 3000);
+        fetchImage(); // Fetch the initial image on page load
+
+        // Handle file upload
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+            e.preventDefault(); // Prevent the form from reloading the page
+
+            const fileInput = document.getElementById("file");
+            if (!fileInput.files[0]) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("image", fileInput.files[0]);
+            formData.append("device_id", deviceId);
+
+            try {
+                const response = await fetch("http://localhost:5000/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    alert("File uploaded successfully!");
+                    fetchImage(); // Refresh the displayed image immediately
+                } else {
+                    alert("Error uploading file.");
+                }
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                alert("Error uploading file. Please try again.");
+            }
+        });
+    </script>
+</body>
+</html>

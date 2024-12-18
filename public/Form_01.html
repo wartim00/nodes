@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Form</title>
+</head>
+<body>
+    <h1>File Upload</h1>
+    <form id="uploadForm">
+        <label for="device">Select Device:</label>
+        <select id="device" name="device_id">
+            <option value="device_01">Device 1</option>
+            <option value="device_02">Device 2</option>
+            <option value="device_03">Device 3</option>
+        </select>
+        <br><br>
+        <input type="file" id="file" name="image" />
+        <br><br>
+        <button type="submit">Upload</button>
+		
+		<h2>Uploaded Files</h2>
+		<div id="fileList">
+		<p>No files uploaded yet.</p>
+		</div>
+		
+    </form>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent default form submission
+
+            const form = event.target; // Reference the form
+            const formData = new FormData(form); // Create FormData object from the form
+
+            try {
+                // Send the form data to the server
+                const response = await fetch('http://localhost:5000/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json(); // Parse the response JSON
+                console.log('Upload successful:', result);
+                alert(`File uploaded successfully: ${result.file_path}`);
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                alert('Error uploading file. Please try again.');
+            }
+        });
+    </script>
+	
+	<script>
+    async function fetchFilesForDevice(deviceId) {
+        try {
+            const response = await fetch(`http://localhost:5000/files/${deviceId}`);
+            if (!response.ok) {
+                throw new Error(`Error fetching files: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const fileListDiv = document.getElementById('fileList');
+
+            // Clear existing content
+            fileListDiv.innerHTML = '';
+
+            if (data.files && data.files.length > 0) {
+                // Create a list of files
+                const ul = document.createElement('ul');
+                data.files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.textContent = file;
+
+                    // Add a clickable link to the file
+                    const link = document.createElement('a');
+                    link.href = `http://localhost:5000/uploads/${deviceId}/${file}`;
+                    link.textContent = ' (View)';
+                    link.target = '_blank';
+                    li.appendChild(link);
+
+                    ul.appendChild(li);
+                });
+                fileListDiv.appendChild(ul);
+            } else {
+                fileListDiv.textContent = 'No files uploaded yet.';
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error fetching files. Please try again.');
+        }
+    }
+	</script>
+
+	<script>
+		document.getElementById('device').addEventListener('change', (event) => {
+			const selectedDevice = event.target.value;
+			fetchFilesForDevice(selectedDevice);
+		});
+
+		// Fetch files for the initially selected device on page load
+		document.addEventListener('DOMContentLoaded', () => {
+			const initialDevice = document.getElementById('device').value;
+			fetchFilesForDevice(initialDevice);
+		});
+	</script>
+	
+
+	<script>
+    const eventSource = new EventSource('http://localhost:5000/events');
+    const devicesContainer = document.getElementById("devicesContainer");
+
+    eventSource.onmessage = (event) => {
+        const deviceId = event.data; // Device ID from the server
+        console.log(`New image detected for ${deviceId}. Fetching...`);
+        updateDeviceImage(deviceId);
+    };
+
+    async function updateDeviceImage(deviceId) {
+        const existingDiv = document.getElementById(deviceId);
+        if (!existingDiv) {
+            const div = document.createElement("div");
+            div.id = deviceId;
+            div.style.marginBottom = "20px";
+            devicesContainer.appendChild(div);
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5000/uploads/${deviceId}`);
+            const div = document.getElementById(deviceId);
+
+            if (response.ok) {
+                // If image exists, display it
+                const img = document.createElement("img");
+                img.src = `http://localhost:5000/uploads/${deviceId}?t=${Date.now()}`;
+                img.alt = `${deviceId} Image`;
+                img.style.maxWidth = "100%";
+                img.style.height = "auto";
+
+                div.innerHTML = '<h3>${deviceId}:</h3>';
+                div.appendChild(img);
+            } else {
+                // If no image, display a message
+                div.innerHTML = '<h3>${deviceId}: No image uploaded</h3>';
+            }
+        } catch (error) {
+            console.error(`Error updating image for ${deviceId}:`, error);
+        }
+    }
+
+    // Initial load for all devices
+    async function loadAllDevices() {
+        const devices = ["device_01", "device_02", "device_03"]; // Add all device IDs
+        devices.forEach(updateDeviceImage);
+    }
+
+    loadAllDevices();
+	</script>
+
+
+<script>
+    const deviceId = 'device_03'; // Replace with the device you want to track dynamically
+
+    // Establish an SSE connection
+    const eventSource = new EventSource('http://localhost:5000/events');
+
+    eventSource.onmessage = (event) => {
+        console.log('SSE message received:', event.data);
+
+        if (event.data === deviceId) {
+            // Reload the image by appending a unique query parameter
+            const imageElement = document.getElementById('deviceImage');
+            const timestamp = new Date().getTime(); // Prevent caching
+            imageElement.src = `/uploads/${deviceId}?t=${timestamp}`;
+        }
+    };
+
+    eventSource.onerror = (err) => {
+        console.error('SSE connection error:', err);
+    };
+
+    console.log('SSE connection established');
+</script>
+
+	
+		
+</body>
+</html>
